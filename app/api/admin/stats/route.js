@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
-import { stats } from '@/lib/data';
+import { adminStats, usingDatabase } from '@/lib/db';
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
-  return NextResponse.json({ data: stats });
+  const data = await adminStats();
+  return NextResponse.json({ data, source: usingDatabase() ? 'database' : 'demo' });
 }
