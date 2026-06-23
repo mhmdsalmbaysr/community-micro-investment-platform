@@ -1,0 +1,177 @@
+// Prisma schema — Community Micro-Investment Platform
+// Core domain modeled for the Next.js app. Mirrors db/01_schema.sql.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AccountStatus {
+  pending
+  active
+  suspended
+  closed
+}
+
+enum ProjectStatus {
+  draft
+  submitted
+  under_review
+  approved
+  published
+  funded
+  in_progress
+  completed
+  rejected
+  cancelled
+}
+
+enum InvestmentStatus {
+  pending
+  confirmed
+  cancelled
+  refunded
+}
+
+enum TxnType {
+  deposit
+  withdrawal
+  investment
+  refund
+  profit_distribution
+  fee
+  adjustment
+}
+
+enum TxnStatus {
+  pending
+  completed
+  failed
+  reversed
+}
+
+model Organization {
+  id           BigInt    @id @default(autoincrement())
+  name         String    @db.VarChar(160)
+  slug         String    @unique
+  currencyCode String    @default("SAR") @map("currency_code") @db.Char(3)
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  users        User[]
+  projects     Project[]
+  @@map("organizations")
+}
+
+model Role {
+  id        BigInt     @id @default(autoincrement())
+  code      String     @unique @db.VarChar(50)
+  name      String     @db.VarChar(100)
+  users     UserRole[]
+  @@map("roles")
+}
+
+model User {
+  id             BigInt        @id @default(autoincrement())
+  organizationId BigInt        @map("organization_id")
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  fullName       String        @map("full_name") @db.VarChar(160)
+  email          String        @db.VarChar(180)
+  phone          String?       @db.VarChar(20)
+  passwordHash   String        @map("password_hash")
+  accountStatus  AccountStatus @default(pending) @map("account_status")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  roles          UserRole[]
+  projects       Project[]     @relation("ProjectOwner")
+  investments    Investment[]
+  wallets        Wallet[]
+  @@unique([organizationId, email])
+  @@map("users")
+}
+
+model UserRole {
+  userId BigInt @map("user_id")
+  roleId BigInt @map("role_id")
+  user   User   @relation(fields: [userId], references: [id])
+  role   Role   @relation(fields: [roleId], references: [id])
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model ProjectCategory {
+  id       BigInt    @id @default(autoincrement())
+  code     String    @db.VarChar(40)
+  name     String    @db.VarChar(100)
+  projects Project[]
+  @@map("project_categories")
+}
+
+model Project {
+  id             BigInt           @id @default(autoincrement())
+  organizationId BigInt           @map("organization_id")
+  organization   Organization     @relation(fields: [organizationId], references: [id])
+  ownerId        BigInt           @map("owner_id")
+  owner          User             @relation("ProjectOwner", fields: [ownerId], references: [id])
+  categoryId     BigInt?          @map("category_id")
+  category       ProjectCategory? @relation(fields: [categoryId], references: [id])
+  title          String           @db.VarChar(200)
+  slug           String
+  description    String?
+  region         String?          @db.VarChar(80)
+  totalCost      Decimal          @map("total_cost") @db.Decimal(18, 2)
+  totalShares    Decimal          @map("total_shares") @db.Decimal(20, 4)
+  sharePrice     Decimal          @map("share_price") @db.Decimal(18, 2)
+  fundedAmount   Decimal          @default(0) @map("funded_amount") @db.Decimal(18, 2)
+  status         ProjectStatus    @default(draft)
+  riskLevel      String?          @map("risk_level") @db.VarChar(20)
+  createdAt      DateTime         @default(now()) @map("created_at")
+  investments    Investment[]
+  @@unique([organizationId, slug])
+  @@index([organizationId, status])
+  @@map("projects")
+}
+
+model Investment {
+  id             BigInt           @id @default(autoincrement())
+  organizationId BigInt           @map("organization_id")
+  investorId     BigInt           @map("investor_id")
+  investor       User             @relation(fields: [investorId], references: [id])
+  projectId      BigInt           @map("project_id")
+  project        Project          @relation(fields: [projectId], references: [id])
+  shares         Decimal          @db.Decimal(20, 4)
+  sharePrice     Decimal          @map("share_price") @db.Decimal(18, 2)
+  amount         Decimal          @db.Decimal(18, 2)
+  status         InvestmentStatus @default(pending)
+  investedAt     DateTime         @default(now()) @map("invested_at")
+  @@index([investorId, investedAt])
+  @@index([projectId])
+  @@map("investments")
+}
+
+model Wallet {
+  id            BigInt              @id @default(autoincrement())
+  userId        BigInt              @map("user_id")
+  user          User                @relation(fields: [userId], references: [id])
+  currencyCode  String              @default("SAR") @map("currency_code") @db.Char(3)
+  balance       Decimal             @default(0) @db.Decimal(18, 2)
+  lockedBalance Decimal             @default(0) @map("locked_balance") @db.Decimal(18, 2)
+  createdAt     DateTime            @default(now()) @map("created_at")
+  transactions  WalletTransaction[]
+  @@unique([userId, currencyCode])
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id           BigInt    @id @default(autoincrement())
+  walletId     BigInt    @map("wallet_id")
+  wallet       Wallet    @relation(fields: [walletId], references: [id])
+  txnType      TxnType   @map("txn_type")
+  amount       Decimal   @db.Decimal(18, 2)
+  balanceAfter Decimal   @map("balance_after") @db.Decimal(18, 2)
+  status       TxnStatus @default(completed)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  @@index([walletId, createdAt])
+  @@map("wallet_transactions")
+}
