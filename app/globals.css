@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+html { scroll-behavior: smooth; }
+body { @apply bg-gray-50 text-gray-900 antialiased; }
+
+.container-x { @apply mx-auto w-full max-w-6xl px-4 sm:px-6; }
+.btn { @apply inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition; }
+.btn-primary { @apply bg-trust text-white hover:bg-trust-dark; }
+.btn-green { @apply bg-growth text-white hover:bg-growth-dark; }
+.btn-ghost { @apply border border-gray-300 text-gray-700 hover:bg-gray-100; }
+.card { @apply rounded-2xl border border-gray-200 bg-white shadow-sm; }
+.progress { @apply h-2.5 w-full overflow-hidden rounded-full bg-gray-200; }
+.progress > span { @apply block h-full rounded-full bg-growth; }
